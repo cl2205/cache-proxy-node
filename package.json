@@ -1,0 +1,27 @@
+{
+  "name": "earnest-challenge",
+  "version": "1.0.0",
+  "description": "basic caching proxy server",
+  "dependencies": {
+    "async": "^1.5.0",
+    "bluebird": "^3.0.5",
+    "chai": "^3.4.1",
+    "express": "^4.13.3",
+    "lodash": "^3.10.1",
+    "request": "^2.65.0"
+  },
+  "devDependencies": {
+    "chai-spies": "^0.7.1",
+    "mocha": "^2.3.3",
+    "sinon": "^1.17.2",
+    "sinon-chai": "^2.8.0",
+    "supertest": "^1.1.0",
+    "supertest-as-promised": "^2.0.2"
+  },
+  "scripts": {
+    "test": "mocha",
+    "start": "./proxy/index.js"
+  },
+  "author": "Catherine Lau",
+  "license": "ISC"
+}
