@@ -1,4 +1,4 @@
-var proxy = require('../proxy'),
+var proxy = require('./mock-proxy'),
     mocha = require('mocha'),
     server = require('../server'),
     cache = require('../proxy/cache'),
@@ -10,114 +10,111 @@ var proxy = require('../proxy'),
 	expect = chai.expect,
 	should = chai.should(),
     supertest = require('supertest-as-promised'),
-    // http = require('http'),
+    http = require('http'),
     db = require('../server/data'),
     superTestProxy = supertest(proxy);
     
 
 chai.use(sinonChai);
-// chai.use(spies);
 
 
 describe('Transparent Proxy Server', function () {
 
 
     describe('GET requests', function() {
+        var cb = function() {
+            return;
+        };
 
-        beforeEach(function() {
-            console.log("Clearing cache...");
+        afterEach(function() {
             cache.clearAll();
+            cache.maxSizeElements = 5;
+            cache.maxSizeBytes = 205;
         });
 
-        // it ('should get 200', function(done) {
-        //     superTestProxy.get('/api/').end(function(err, res) {
-        //         console.log("err: ", err);
-        //         console.log("RES: ", res);
-        //         done();
-        //     })
-        //     ;
-        // });
 
-        it ('should get 200', function() {
-            console.log("getting in here");
-            return superTestProxy.get('/api/').expect(200).then(function(res) {
-                console.log("Calling this");
+        it ('should send a 200 response', function() {
+
+            return superTestProxy.get('/api/').expect(200);
+
+        });
+
+        it ('should forward initial requests to host server', function() {
+ 
+            var spy = sinon.spy(http, 'request');
+
+            return superTestProxy.get('/api/').then(function(res) {
+
+                sinon.assert.calledTwice(spy);
+
+                http.request.restore();
+
+                expect(res.text).to.equal('request successfully proxied to port 4000');
             });
+            
         });
 
-        it ('should cache response after first request', function() {
+        it ('should NOT forward other request actions (ie. POST, PUT, DELETE)', function() {
 
-            return superTestProxy.get('/api/1')
+            superTestProxy.post('/api/', {}).expect(200).then(function(res) {
+                 expect(res.text).to.equal('Not a GET request - Not forwarded');
+            });
+           
+        });
+
+        it ('should cache response from initial request', function() {
+
+            return superTestProxy.get('/api/')
                 .expect(200)
                 .then(function(res) {
-                    console.log("looking at cache store");
-                    expect(cache.store).to.have.property('/api/1');
-                    // return res;
+                    expect(cache.store).to.have.property('/api/');
                 });
         });
 
-        // it('should hold max of 5 entries', function(done) {
-
-        //     expect(cache.numElements).to.equal(5);
-        //     done();
-        //  });
-        // it should update cache in bytes
-
-        // it should update num elements in cache;
-
-        it ('should clear oldest cached entries when max number of elements in cache is reached', function() {
-
-            // cache.maxSizeElements = 5;
-
-            return superTestProxy.get('/api/1').expect(200)
-
-            .then(function(res) {
-                return superTestProxy.get('/api/2').expect(200);
-            })
-            .then(function(res) {
-                return superTestProxy.get('/api/3').expect(200);
-            })
-            .then(function(res) {
-                return superTestProxy.get('/api/4').expect(200);
-            })
-            .then(function(res) {
-                return superTestProxy.get('/api/5').expect(200);
-            })
-            .then(function(res) {
-                return superTestProxy.get('/api/6').expect(200);
-            })
-            .then(function(res) {
-                console.log("CACHE", cache);
-                expect(cache.numElements).to.equal(5);
-            });
-
-        });
-
-        xit('should delete oldest entries once max size (in bytes) is reached', function(done) {
-
-            // var spy = chai.spy(cache.removeKey);
-            // expect(spy).to.have.been.called();
-            // expect(cache).to.not.have.property('/api/1');
-            // done();
-        });
 
         it ('should retrieve from cache for 2nd request', function() {
            
-           var spy = sinon.spy(cache, 'get');
-        // var spy = chai.spy(http.request);
-            // var spy = chai.spy(request('http://localhost:4000/api/1'));
-            console.log("cache.get is a function: ", cache.get);
-            // cache.get = chai.spy(cache.get);
+           var cacheSpy = sinon.spy(cache, 'get');
+    
             return superTestProxy.get('/api/').expect(200)
-
             .then(function(res) {
+
+                cacheSpy.should.not.have.been.called;
                 return superTestProxy.get('/api/').expect(200);
             })
             .then(function(res) {
-                sinon.assert.calledOnce(spy);
-                      // return res;
+                sinon.assert.calledOnce(cacheSpy);
+                cache.get.restore();
 
             });
+        });
+
+        it ('should refresh cache duration of an entry when that entry get served', function() {
+            
+        });
+
+        it ('should improve load/reponse times for cached requests', function() {
+            
+            var newReqTime;
+            var cachedReqTime;
+            var start2;
+            var start1 = Date.now();
+
+            return superTestProxy.get('/api/').expect(200)
+
+            .then(function(res) {
+                newReqTime = Date.now() - start1;
+                start2 = Date.now();
+                return superTestProxy.get('/api/').expect(200);
+            })
+
+            .then(function(res) {
+                cachedReqTime = Date.now() - start2;
+                expect(cachedReqTime).to.be.below(newReqTime);
+                console.info("New req response time: %dms", newReqTime);
+                console.info("Cached req response time: %dms", cachedReqTime);
+            });
+
         });
 
        
@@ -127,48 +124,110 @@ describe('Transparent Proxy Server', function () {
 
 describe('Caching Layer', function() {
 
-    it ('should clear cached entries as they expire', function() {
+    afterEach(function() {
+        cache.clearAll();
+        cache.maxSizeElements = 5;
+        cache.maxSizeBytes = 205;
+    });
+
+    var cb = function() {
+        console.log('added');
+    };
+
+    it ('should keep track of cache size as new entries are added', function() {
+
+        cache.add('/api/1', 'some data', 5, cb);
+
+        expect(cache.numElements).to.equal(1);
+        expect(cache.numBytes).to.equal(5);
+
+        cache.add('/api/2', 'some data', 5, cb);
+
+        expect(cache.numElements).to.equal(2);
+        expect(cache.numBytes).to.equal(10);
+
+    });
+
+    it('should hold a max number of entries', function(done) {
+
+        cache.maxSizeElements = 2;
+
+        cache.add('/api/1', 'some data', 5, cb);
+        cache.add('/api/2', 'some data', 5, cb);
+        cache.add('/api/3', 'some data', 5, cb);
+
+        expect(cache.numElements).to.equal(2);
+
+        done();
+
+    });
+
+    it('should hold only as many entries as it can fit (in bytes)', function(done) {
+
+        var entrysize1 = 60;
+        var entrysize2 = 60;
+
+        cache.maxSizeBytes = 100;
+
+        cache.add('/api/1', 'some data', entrysize1, cb);
+        cache.add('/api/2', 'some data', entrysize2, cb);
+
+        expect(cache.numBytes).to.equal(60);
+
+        done();
+     });
+
+    it('should emit an "expired" event when any entry expires', function() {
+        var eventSpy = sinon.spy();
+        setTimeout(function() {
+            sinon.assert.calledOnce(eventSpy);
+            eventSpy.restore();
+        }, 1000);
+
+        cache.on('expired', eventSpy);
+    });
+
+    it ('should remove cached entries as they expire', function() {
+
+        cache.add('/api/1', 'some data', 5, cb, 1000);
+    
+        setTimeout(function() {
+            expect(cache.store).to.not.have.property('/api/1');
+        }, 1500);
+            
+    });
+          
+    it('should remove oldest entries as max size (in bytes) is reached', function() {
+
+        var entrysize1 = 60;
+        var entrysize2 = 60;
+        var removeOldest = sinon.spy(cache, 'removeOldest');
+
+        cache.maxSizeBytes = 100;
+        cache.add('/api/1', 'some data', entrysize1, cb);
+        cache.add('/api/2', 'some data', entrysize2, cb);
+        
+        expect(cache.store).to.not.have.property('/api/1');
+        expect(cache.store).to.have.property('/api/2');
+        sinon.assert.calledOnce(removeOldest);
+     
+    });
+
+    it ('should remove oldest entries as max size (in # of entries) is reached', function() {
+
+        cache.maxSizeElements = 3;
+
+        cache.add('/api/1', 'some data', 5, cb);
+        cache.add('/api/2', 'some data', 5, cb);
+        cache.add('/api/3', 'some data', 5, cb);
+        cache.add('/api/4', 'some data', 5, cb);
+
+        expect(cache.numElements).to.equal(3);
+        expect(cache.store).to.not.have.property('/api/1');
+        expect(cache.store).to.have.property('/api/4');
 
     });
 
 });
 
-
-        // it ('should improve load/reponse times for cached requests', function() {
-            
-        //     var startTimeCachedReq = Date.now();
-        //     var executionTimeCached;
-
-
-        //     var startTimeNewReq = Date.now();
-        //     var executionTimeNew;
-
-        //     return superTestProxy.get('/api/new-request')
-        //         .then(function(res) {
-        //             executionTimeNew = Date.now() - startTimeNewReq;
-        //             console.info("New execution time: %dms", executionTimeNew);
-        //             return superTestProxy.get('/api/1')
-        //         })
-        //         .then(function(res) {
-        //             expect(executionTimeCached).to.be.below(executionTimeNew);
-        //         }
-
-                    
-        //         .then
-
-        //         .then(function(res) {
-        //             executionTimeCached = Date.now() - startTimeCachedReq;
-        //             console.info("Cached execution time: %dms", executionTimeCached);
-
-        //         });
-
-        //         })
-     
-        // });
-            
-
-
-// });
-
-// });
-//    
+ 

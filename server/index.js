@@ -8,6 +8,9 @@ var hostServer = http.createServer().listen(4000, function() {
 });
 
 hostServer.on('request', function(err, response) {
+
+	if (err) console.log(err);
+
 	console.log("request received by host server");
 	var message = 'request successfully proxied to port 4000';
 	// var byteLengthOfMessage = Buffer.byteLength(message);
@@ -23,22 +26,10 @@ hostServer.on('request', function(err, response) {
 	response.end();
 });
 
-
-
 // error handling
 
-// catch 404 and forward to error handler
-// app.use(function(req, res, next) {
-// 	console.log("ERROR REQUEST: ", req.url);
-//     var err = new Error('Not Found');
-//     err.status = 404;
-//     next(err);
-// });
 hostServer.on('error', function(err){
-
 	console.log('error: ', err);
-	err.statusCode = 404;
-	// return err.end('error: ' + err.message);
 });
 
 module.exports = hostServer;

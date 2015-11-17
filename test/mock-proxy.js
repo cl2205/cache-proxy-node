@@ -5,7 +5,7 @@ var http = require('http');
 
 // var proxyServer = http.createServer(app);
 var proxyServer = http.createServer();
-var port = process.env.PORT || 3000;
+var port = process.env.PORT || 3100;
 
 // proxyServer.set('port', port);
 
@@ -16,7 +16,7 @@ proxyServer.listen(port, function() {
 
 var request = require('request');
 var db = require('../server/data');
-var cache = require('./cache');
+var cache = require('../proxy/cache');
 var apiServerHost = 'http://localhost:4000';
 // var http = require('http');
 // var apiServerHost = require('../server')
@@ -170,9 +170,7 @@ proxyServer.on('request', function(request, response) {
 	} else {
 
 		// not a GET request
-		response.writeHead(200);
 		response.write('Not a GET request - Not forwarded');
-		response.end();
 	}
 
 });

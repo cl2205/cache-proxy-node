@@ -6,12 +6,6 @@ var _ = require('lodash');
 // Cache inherit from EE - can emit events
 util.inherits(Cache, EventEmitter);
 
-  // {
-  //   cacheDuration: 30 * 1000,
-  //   cacheSizeBytes: 1024 * 2,
-  //   cacheSizeElements: 50
-  // }
-
 // Cache constructor 
 function Cache(maxElements, maxBytes) {
 
@@ -22,66 +16,34 @@ function Cache(maxElements, maxBytes) {
 	this.maxSizeBytes = maxBytes || 205;
 	this.store = {};
 	this.on('expired', function(key) {
-		console.log("cache entry has expired. Removing entry...");
 		this.remove(key, function() {
 			console.log('cache entry has expired. Removed entry.');
 		});
 	});
-	// this.store.addEventListener('entryExpired', function(err, key) {
-	// 	if (err) console.log('Error: ', err);
-		
-	// 	this.remove(key, function() {
-	// 		console.log('cache entry has expired. Removed entry.');
-	// 	});
-	// });
-
 }
 
 
+// cache entry factory function
+function createCacheEntry(data, size, duration) {
+	var obj = {
+		data: data,
+		timestamp: Date.now(),
+		size: size,
+		duration: duration || 3600000,
+		expiration: undefined
+	};
 
+	return obj;
 
-// Cache.on('maxSizeReached', function(key) {
-// 	console.log("Cache size limit reached. Removing older records...");
-// 	this.remove(key, function() {
-// 		console.log('Freeing up space by removing 1 records.');
-// 	});
-// });
-
-
-// new cache entry constructor
-function CacheEntry() {
-
-	// var self = this;
-	// this.data = data;
-	// this.timestamp = Date.now();
-	// console.log("this.timestamp: ", this.timestamp);
-	// this.size = size; // how to determine the size of a resource in bytes?
-	// register entry expiration event
 }
 
-Cache.prototype = Object.create(EventEmitter.prototype);
-
-
-// // cache obj constructor
-// function CacheEntry(duration, size) {
-// 	this.cacheDuration = duration;
-// 	this.timestamp;
-// 	this.lastUsedTimestamp;
-// 	this.size = size;
-// }
-
-// When a DNS record is stored in the cache of a DNS server, the record's TTL is continuously reduced as time go by, and when the TTL finally reaches zero the record is removed from the cache.
-
-// register event -- or setTimeoutevent;
-
-// Cache.prototype.getCache = function(name) {
-// 	if (this.name === name) return this;
-// };
 
 Cache.prototype.add = function(key, data, size, cb, duration) {
 
 	var self = this;
 	console.log("Called cache add function");
+
+
 
 	// checkCacheSize - if (this.numElements = maxNumEelements) || if (bytesRemaining <= 0)
 		// while (bytesRemaining = 0 || numElementsRemaining = 0)
@@ -99,7 +61,8 @@ Cache.prototype.add = function(key, data, size, cb, duration) {
 	console.log("CURRENT NUM OF ELEMENTS: ", this.numElements);
 	console.log("NUM ELEMENTS REMAINING: ", numElementsRemaining);
 
-	console.log("TRUE OR NOT? ", this.maxSizeElements - this.numElements <= 0);
+	console.log("is max number element reached? ", this.maxSizeElements - this.numElements <= 0);
+	console.log("is max number of bytes reaches? ", size > this.maxSizeBytes - this.numBytes);
 	while (this.maxSizeElements - this.numElements <= 0 || (size > this.maxSizeBytes - this.numBytes)) {
 		console.log("CACHE IS FULL!!!! DELETING ELMEENTS");
 		// this.removeOldest();
@@ -112,28 +75,35 @@ Cache.prototype.add = function(key, data, size, cb, duration) {
 		// else cache has space, create new entry
 
 			//cache new server responsees for future req
+	// 	var newEntry = {
 
-	var newEntry = new CacheEntry();
-	newEntry.timestamp = Date.now();
-	newEntry.size = size;
-	newEntry.data = data;
+	// 	data: data,
+	// 	timestamp: Date.now();
+	// 	size: size,
+	// 	duration: duration || 3600000
 
+	// }
 
-	newEntry.duration = duration || 3600000;
-	newEntry.expiration = duration + this.timestamp || 3600000 + newEntry.timestamp; // default 1 hour
+	var newEntry = createCacheEntry(data, size, duration);
 
-	newEntry.cacheDuration = setTimeout(function() {
-							console.log("DURATION: ", newEntry.duration);
-							// console.log("what is 'this': ", this);
+	newEntry.expiration = setTimeout(function() {
 							self.emit('expired', key);
 						}, newEntry.duration);
-	
-	// var obj = {};
-	// obj.data = data;
-	// obj.timestamp = Date.now();
-	// obj.cacheDuration = duration + obj.timestamp || 3600000 + obj.timestamp; // default 1 hour
-	// obj.lastUsedTimestamp;
-	// obj.size = size || 0;
+
+	// var newEntry = new CacheEntry();
+	// newEntry.timestamp = Date.now();
+	// newEntry.size = size;
+	// newEntry.data = data;
+
+
+	// newEntry.duration = duration || 3600000;
+	// newEntry.expiration = duration + this.timestamp || 3600000 + newEntry.timestamp; // default 1 hour
+
+	// newEntry.cacheDuration = setTimeout(function() {
+	// 						console.log("DURATION: ", newEntry.duration);
+	// 						// console.log("what is 'this': ", this);
+	// 						self.emit('expired', key);
+	// 					}, newEntry.duration);
 	
 	// if (!duration) duration = 50000; // set default ttl (time-to-live) to 1 hour
 	this.store[key] = newEntry;
@@ -142,7 +112,7 @@ Cache.prototype.add = function(key, data, size, cb, duration) {
 
 	// check if max size reached? 
 	// this.bytesRemaining = this.maxSizeBytes - data.size;
-	cb();
+	if (cb !== 'undefined') cb();
 };
 
 Cache.prototype.get = function(key) {
