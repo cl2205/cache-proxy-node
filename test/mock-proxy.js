@@ -38,7 +38,7 @@ proxyServer.on('request', function(request, response) {
 				url: apiServerHost + request.url,
 				headers: request.headers,
 				method: request.method,
-				port: 4000 // server port 
+				port: 4100 // mock server port 
 
 			};
 
