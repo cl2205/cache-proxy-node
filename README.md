@@ -5,8 +5,6 @@ The proxy accepts incoming HTTP GET requests and forwards them on to a destinati
 Caveats: 
 - Does not cover full validation/error handling at the moment
 - Assumes http headers are not stored in cache
-- Tests currently cover core functionality; 'mock' servers need to be replaced with mocks within the Mocha/Chai/Sinon framework
-
 
 Testing:
 
