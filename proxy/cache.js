@@ -10,15 +10,15 @@ util.inherits(Cache, EventEmitter);
 function Cache(maxElements, maxBytes) {
 
 	var self = this;
+	this.head;
+	this.tail;
 	this.numElements = 0;
 	this.numBytes = 0;
 	this.maxSizeElements = maxElements || 5;
 	this.maxSizeBytes = maxBytes || 205;
 	this.store = {};
 	this.on('expired', function(key) {
-		// listener to remove individual entry when expired
 		this.remove(key, function() {
-			console.log('cache entry has expired. Removed entry.');
 		});
 	});
 }
@@ -28,13 +28,16 @@ function createCache() {
 }
 
 // cache entry factory function
-function createCacheEntry(data, size, duration) {
+function createCacheEntry(key, data, size, duration) {
 	var obj = {
+		key: key,
 		data: data,
 		timestamp: Date.now(),
 		size: size,
 		duration: duration || 3600000,
-		expiration: undefined
+		expiration: undefined,
+		next: null,
+		previous: null
 	};
 
 	return obj;
@@ -42,62 +45,71 @@ function createCacheEntry(data, size, duration) {
 }
 
 
-Cache.prototype.add = function(key, data, size, cb, duration) {
+Cache.prototype.add = function(key, data, size, duration) {
 
 	var self = this;
 
-	// validation
 	if (typeof key !== 'string') throw new TypeError('Keys must be strings');
 	
-	// while cache is full (numElements or numBytes)
-	while (this.maxSizeElements - this.numElements <= 0 || (size > this.maxSizeBytes - this.numBytes)) {
-
-		console.log("Cache is full. Freeing up space before adding...");
-
-		//remove old entries until enough space is available to cache new response
+    while (this.isFull(size)) {
 		this.removeOldest();
 	}
 
-	
 	// create new cache entry
-	var newEntry = createCacheEntry(data, size, duration);
+	var newEntry = createCacheEntry(key, data, size, duration);
 
 	// set timeout before emitting 'expired' event
 	newEntry.expiration = setTimeout(function() {
-							self.emit('expired', key);
-						}, newEntry.duration);
+		self.emit('expired', key);
+	}, newEntry.duration);
 
+	// if cache is empty
+	if (typeof this.head === 'undefined' && typeof this.tail === 'undefined') {
+		this.head = newEntry;
+		this.tail = newEntry;
+
+	} else {
+		// else add entry to Tail - adjust pointers
+		this.tail.next = newEntry;
+		newEntry.previous = this.tail;
+		this.tail = newEntry;
+	}
+	
 	// save entry to hash table 'store' with url path as key
 	// update cache size
 	this.store[key] = newEntry;
 	this.numElements++;
 	this.numBytes += newEntry.size;
 
-	// call callback
-	if (cb !== undefined) cb();
 };
 
 Cache.prototype.removeOldest = function() {
 
-	// if cache is empty, return
-	if (Object.keys(this.store).length === 0) return;
+	if (this.isEmpty()) return;
 
-	// find oldest entry, remove from cache, update cache size
-	var store = this.store;
+	var oldestEntry = this.head;
 
-	var oldestEntry = _.min(store, function(entry) {
-		return entry.timestamp;
-	});
+	// if 1 entry 
+	if (this.head === this.tail) {
+		this.head = undefined;
+		this.tail = undefined;
 
-	var oldestEntryKey = _.findKey(store, oldestEntry);
+	} else {
+		this.head = this.head.next;
+		this.head.previous = null;
+	}
 
-	var bytesFreed = store[oldestEntryKey].size;
+	oldestEntry.previous = null;
+	oldestEntry.next = null;
 
-	delete store[oldestEntryKey];
+	var bytesFreed = oldestEntry.size;
+
+	delete this.store[oldestEntry.key];
 
 	this.numElements--;
 	this.numBytes = this.numBytes - bytesFreed;
-
+    
+	return oldestEntry;
 };
 
 Cache.prototype.clearAll = function() {
@@ -107,7 +119,8 @@ Cache.prototype.clearAll = function() {
 			delete store[key];
 		}
 	}
-
+	this.head = undefined;
+	this.tail = undefined;
 	this.numElements = 0;
 	this.numBytes = 0;
 
@@ -115,9 +128,32 @@ Cache.prototype.clearAll = function() {
 
 Cache.prototype.get = function(key) {
 	var entry = this.store[key];
+	if (!entry) return;
 	// update timestamp & refresh cache duration before serving
 	entry.timestamp = Date.now();
 	entry.duration = 3600000; // reset to default
+
+	// if 1 entry or most recent entry (tail)
+	if ((entry === this.head && entry === this.tail) || entry === this.tail ) 
+		return entry;
+
+	if (entry === this.head) {
+
+		this.head.next = this.head
+		this.head.previous = null;
+
+	} else {
+		// middle node
+		entry.previous.next = entry.next;
+		entry.next.previous = entry.previous;
+	}
+
+	// move retrieved entry to tail, adjust pointers
+	entry.previous = this.tail;
+	this.tail.next = entry;
+	this.tail = entry;
+	this.tail.next = null;
+
 	return entry;
 };
 
@@ -125,9 +161,12 @@ Cache.prototype.hasKey = function(key) {
 	return !!(this.store[key]);
 };
 
-Cache.prototype.remove = function(key, cb) {
-	delete this.store[key];
-	cb();
+Cache.prototype.isFull = function(entrySize) {
+    return (this.maxSizeElements - this.numElements <= 0 || entrySize > this.maxSizeBytes - this.numBytes);
+};
+
+Cache.prototype.isEmpty = function() {
+	return typeof this.head === 'undefined' && typeof this.tail === 'undefined';
 };
 
 module.exports = createCache();

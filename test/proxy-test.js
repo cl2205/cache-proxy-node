@@ -1,25 +1,20 @@
-var proxy = require('./mock-proxy'),
-    server = require('./mock-server'),
+var proxy = require('../proxy'),
+    server = require('../server'),
     cache = require('../proxy/cache'),
 	chai = require('chai'),
     sinon = require('sinon'),
     sinonChai = require('sinon-chai'),
 	expect = chai.expect,
 	should = chai.should(),
-    supertest = require('supertest-as-promised'),
-    http = require('http'),
-    superTestProxy = supertest(proxy);
+    request = require('supertest-as-promised')(proxy),
+    http = require('http');
     
-
 chai.use(sinonChai);
 
 
-describe('Transparent Proxy Server', function () {
+describe('Proxy Server', function () {
 
     describe('GET requests', function() {
-        var cb = function() {
-            return;
-        };
 
         afterEach(function() {
             cache.clearAll();
@@ -30,7 +25,7 @@ describe('Transparent Proxy Server', function () {
 
         it ('should send a 200 response', function() {
 
-            return superTestProxy.get('/api/').expect(200);
+            return request.get('/api/').expect(200);
 
         });
 
@@ -38,7 +33,20 @@ describe('Transparent Proxy Server', function () {
  
             var spy = sinon.spy(http, 'request');
 
-            return superTestProxy.get('/api/').then(function(res) {
+
+            // var request = sinon.stub();
+            // var expectedResult = 'request successfully proxied';
+
+            // request.withArgs('/api/').yields(null, expectedResult);
+
+            // request('/api', function(err, data) {
+            //     expect(err).to.be.null;
+            //     expect(data).to.equal('request successfully proxied');
+            //     done();
+            // });
+            // request.restore();
+
+            return request.get('/api/').then(function(res) {
 
                 sinon.assert.calledTwice(spy);
 
@@ -52,16 +60,16 @@ describe('Transparent Proxy Server', function () {
 
         it ('should NOT forward other request actions (ie. POST, PUT, DELETE)', function() {
 
-            superTestProxy.post('/api/', {}).expect(200).then(function(res) {
+            request.post('/api/', {}).expect(200).then(function(res) {
                  expect(res.text).to.equal('Not a GET request - Not forwarded');
                  return;
             });
            
         });
 
-        it ('should cache response from initial request', function() {
+        it ('should cache response after initial request', function() {
 
-            return superTestProxy.get('/api/')
+            return request.get('/api/')
                 .expect(200)
                 .then(function(res) {
                     expect(cache.store).to.have.property('/api/');
@@ -74,11 +82,11 @@ describe('Transparent Proxy Server', function () {
            
            var cacheSpy = sinon.spy(cache, 'get');
     
-            return superTestProxy.get('/api/').expect(200)
+            return request.get('/api/').expect(200)
             .then(function(res) {
 
                 cacheSpy.should.not.have.been.called;
-                return superTestProxy.get('/api/').expect(200);
+                return request.get('/api/').expect(200);
             })
             .then(function(res) {
                 sinon.assert.calledOnce(cacheSpy);
@@ -95,12 +103,12 @@ describe('Transparent Proxy Server', function () {
             var start2;
             var start1 = Date.now();
 
-            return superTestProxy.get('/api/').expect(200)
+            return request.get('/api/').expect(200)
 
             .then(function(res) {
                 newReqTime = Date.now() - start1;
                 start2 = Date.now();
-                return superTestProxy.get('/api/').expect(200);
+                return request.get('/api/').expect(200);
             })
 
             .then(function(res) {
@@ -128,11 +136,49 @@ describe('Caching Layer', function() {
         cache.maxSizeBytes = 205;
     });
 
-    var cb = function() {
-        return;
-    };
+    it ('should set first cache entry as both head and tail of cache', function() {
 
-    it ('should keep track of cache size as new entries are added', function() {
+        cache.add('/api/1', 'some data', 5);
+        expect(cache.head.key).to.equal('/api/1');
+        expect(cache.tail.key).to.equal('/api/1');
+
+    });
+
+    it ('should add most recently used entries to tail of cache', function() {
+
+        cache.add('/api/1', 'some data', 5);
+        cache.add('/api/2', 'some data', 5);
+        cache.add('/api/3', 'some data', 5);
+
+        expect(cache.tail.key).to.equal('/api/3');
+
+    });
+
+    it ('should remove least recently used entries from head of cache', function() {
+        cache.add('/api/1', 'some data', 5);
+        cache.add('/api/2', 'some data', 5);
+        cache.add('/api/3', 'some data', 5);
+
+        expect(cache.head.key).to.equal('/api/1');
+        cache.removeOldest();
+        expect(cache.head.key).to.equal('/api/2');
+
+    });
+
+    it ('should move an older entry to tail when that entry is requested from cache', function() {
+
+        cache.add('/api/1', 'some data', 5, 10000);
+        cache.add('/api/2', 'some data', 5, 10000);
+        cache.add('/api/3', 'some data', 5, 10000);
+        expect(cache.tail.key).to.equal('/api/3');
+
+        cache.get('/api/1');
+        expect(cache.tail.key).to.equal('/api/1');
+
+    });
+
+
+    it ('should track memory and size limits as new entries are added', function() {
 
         cache.add('/api/1', 'some data', 5);
 
@@ -146,64 +192,17 @@ describe('Caching Layer', function() {
 
     });
 
-    it('should hold only as many entries as it can fit (in number)', function(done) {
-
-        cache.maxSizeElements = 2;
-
-        cache.add('/api/1', 'some data', 5);
-        cache.add('/api/2', 'some data', 5);
-        cache.add('/api/3', 'some data', 5);
-
-        expect(cache.numElements).to.equal(2);
-
-        done();
-
-    });
-
-    it('should hold only as many entries as it can fit (in bytes)', function(done) {
-
-        var entrysize1 = 60;
-        var entrysize2 = 60;
-
-        cache.maxSizeBytes = 100;
-
-        cache.add('/api/1', 'some data', entrysize1, cb);
-        cache.add('/api/2', 'some data', entrysize2, cb);
-
-        expect(cache.numBytes).to.equal(60);
-
-        done();
-     });
-
-    it('should emit an "expired" event when an entry expires', function() {
-        var eventSpy = sinon.spy();
-        setTimeout(function() {
-            sinon.assert.calledOnce(eventSpy);
-            eventSpy.restore();
-        }, 1000);
-
-        cache.on('expired', eventSpy);
-    });
-
-    it ('should remove cached entries as they expire', function() {
-
-        cache.add('/api/1', 'some data', 5, cb, 1000);
-    
-        setTimeout(function() {
-            expect(cache.store).to.not.have.property('/api/1');
-        }, 1500);
-            
-    });
           
-    it('should free up space and remove oldest entries as max size (in bytes) is reached', function() {
+    it('should remove LRU entries as max cache memory (bytes) is reached', function() {
 
         var entrysize1 = 60;
         var entrysize2 = 60;
         var removeOldest = sinon.spy(cache, 'removeOldest');
 
         cache.maxSizeBytes = 100;
-        cache.add('/api/1', 'some data', entrysize1, cb);
-        cache.add('/api/2', 'some data', entrysize2, cb);
+        cache.add('/api/1', 'some data', entrysize1);
+        cache.add('/api/2', 'some data', entrysize2);
+        removeOldest.restore();
         
         expect(cache.store).to.not.have.property('/api/1');
         expect(cache.store).to.have.property('/api/2');
@@ -211,7 +210,7 @@ describe('Caching Layer', function() {
      
     });
 
-    it ('should free up space and remove oldest entries as max size (in # of entries) is reached', function() {
+    it ('should remove LRU entries as max cache size (# of entries) is reached', function() {
 
         cache.maxSizeElements = 3;
 
@@ -226,9 +225,29 @@ describe('Caching Layer', function() {
 
     });
 
-    it ('should refresh timestamp and cache duration of an entry when served from cache', function() {
+    it('should emit an "expired" event when an entry expires', function() {
+        var eventSpy = sinon.spy();
+        setTimeout(function() {
+            sinon.assert.calledOnce(eventSpy);
+            eventSpy.restore();
+        }, 1000);
 
-        cache.add('/api/1', 'some data', 5, cb, 10000);
+        cache.on('expired', eventSpy);
+    });
+
+    it ('should remove LRU cached entries as they expire', function() {
+
+        cache.add('/api/1', 'some data', 5, 1000);
+    
+        setTimeout(function() {
+            expect(cache.store).to.not.have.property('/api/1');
+        }, 1500);
+            
+    });
+
+    it ('should refresh timestamp and expiration of an entry when served from cache', function() {
+
+        cache.add('/api/1', 'some data', 5, 10000);
 
         var entry = cache.store['/api/1'];
         var originalTime = entry.timestamp;
@@ -243,7 +262,6 @@ describe('Caching Layer', function() {
         }, 1000);
 
     });
-
 
 });
 
