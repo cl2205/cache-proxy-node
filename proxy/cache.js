@@ -1,6 +1,5 @@
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
-var _ = require('lodash');
 
 
 // Cache inherit from EE - can emit events
@@ -108,7 +107,7 @@ Cache.prototype.removeOldest = function() {
 
 	this.numElements--;
 	this.numBytes = this.numBytes - bytesFreed;
-    
+
 	return oldestEntry;
 };
 

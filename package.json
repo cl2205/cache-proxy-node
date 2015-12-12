@@ -1,5 +1,5 @@
 {
-  "name": "node caching proxy",
+  "name": "node-caching-proxy",
   "version": "1.0.0",
   "description": "basic caching proxy server",
   "dependencies": {
