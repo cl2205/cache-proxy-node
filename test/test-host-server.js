@@ -1,8 +1,6 @@
 var http = require('http');
 var url = require('url');
-var hostServer = http.createServer().listen(4000, function() {
-	console.log("host listening on port 4000");
-});
+var hostServer = http.createServer().listen(4100);
 
 // Target http server
 

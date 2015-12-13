@@ -1,12 +1,10 @@
 var http = require('http'),
     proxyServer = http.createServer(),
-    port = process.env.PORT || 3000,
-    cache = require('./cache'),
-    hostServer = 'http://localhost:4000';
+    port = process.env.PORT || 3100,
+    cache = require('../proxy/cache'),
+    hostServerPort = 4100;
 
-proxyServer.listen(port, function() {
-    console.log("proxy server listening on port " + port);
-});
+proxyServer.listen(port);
 
 proxyServer.on('request', function(request, response) {
 
@@ -14,7 +12,7 @@ proxyServer.on('request', function(request, response) {
 
         var url = request.url;
  
-        // if cached, serve cached resource
+        // check if cached, serve cached resource
 
         if (cache.hasKey(url)) {
 
@@ -30,10 +28,10 @@ proxyServer.on('request', function(request, response) {
 
             var options = {
                 host: 'localhost',
-                url: hostServer + request.url,
+                url: request.url,
                 headers: request.headers,
                 method: request.method,
-                port: 4000 // host server port 
+                port: hostServerPort // server port 
 
             };
 
@@ -63,8 +61,7 @@ proxyServer.on('request', function(request, response) {
 
         }
 
-    // else not a GET request  
-
+    // else not a GET request   
     } else {
 
         response.statusCode = 200;

@@ -1,9 +1,8 @@
 {
-  "name": "earnest-challenge",
+  "name": "node-caching-proxy",
   "version": "1.0.0",
   "description": "basic caching proxy server",
   "dependencies": {
-    "lodash": "^3.10.1"
   },
   "devDependencies": {
     "chai": "^3.4.1",
