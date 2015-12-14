@@ -49,6 +49,7 @@ proxyServer.on('request', function(request, response) {
                 });
 
                 serverResponse.on('data', function(chunk) {
+                    console.log("DATA CHUNK: ", chunk);
                     resBody += chunk;
                     resBodySize += chunk.length;
                 });

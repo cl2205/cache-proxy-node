@@ -14,7 +14,7 @@ function Cache(maxElements, maxBytes) {
 	this.numElements = 0;
 	this.numBytes = 0;
 	this.maxSizeElements = maxElements || 5;
-	this.maxSizeBytes = maxBytes || 205;
+	this.maxSizeBytes = maxBytes || 100000;
 	this.store = {};
 	this.on('expired', function(key) {
 		this.remove(key, function() {
