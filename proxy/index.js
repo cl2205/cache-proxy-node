@@ -1,24 +1,31 @@
+/* Proxy server with an in-memory cache. Receives incoming GET requests 
+and forwards request to the host server. Server responses are cached for
+retrieval without a server call for future requests of the same resource.
+*/
+
 var http = require('http'),
     proxyServer = http.createServer(),
     port = process.env.PORT || 3000,
-    cache = require('./cache'),
-    hostServer = 'http://localhost:4000';
+    cache = require('../proxy/cache'),
+    url = require('url'),
+    hostServer = '/localhost:4100',
+    hostServerPort = 4000;
 
 proxyServer.listen(port, function() {
-    console.log("proxy server listening on port " + port);
+    console.log('server listening on port 3000');
 });
 
 proxyServer.on('request', function(request, response) {
 
     if (request.method === 'GET') {
 
-        var url = request.url;
- 
+        var reqUrl = request.url;
+
         // if cached, serve cached resource
 
-        if (cache.hasKey(url)) {
+        if (cache.hasKey(reqUrl)) {
 
-            var resource = cache.get(url);
+            var resource = cache.get(reqUrl);
 
             response.statusCode = 200;
             response.write(resource.data);
@@ -27,22 +34,24 @@ proxyServer.on('request', function(request, response) {
         // else forward request to host server
 
         } else {
-
+        
             var options = {
+
                 host: 'localhost',
-                url: hostServer + request.url,
-                headers: request.headers,
+                port: hostServerPort,
+                path: request.url,
                 method: request.method,
-                port: 4000 // host server port 
+                headers: request.headers
 
             };
 
-            var serverReq = http.request(options, function(serverResponse) {
+            var proxyReq = http.request(options, function(serverResponse) {
 
+                // store response object contents and size
                 var resBody = '';
                 var resBodySize = 0;
 
-                serverResponse.pipe(response);
+                serverResponse.setEncoding('utf8');
 
                 serverResponse.on('error', function(err) {
                     handleError(err);
@@ -54,21 +63,30 @@ proxyServer.on('request', function(request, response) {
                 });
 
                 serverResponse.on('end', function() {
-                    cache.add(url, resBody, resBodySize);
+                    // add finished response to cache
+                    cache.add(reqUrl, resBody, resBodySize);
                 });
+
+                serverResponse.pipe(response);
 
             });
 
-            request.pipe(serverReq);
+            proxyReq.on('error', function(err) {
+                response.writeHead(500);
+                response.write('Internal Server Error');
+                response.end();
+            });
+
+            request.pipe(proxyReq);
 
         }
 
-    // else not a GET request  
+    // non-GET requests are not forwarded and cached
 
     } else {
 
         response.statusCode = 200;
-        response.write('Not a GET request - Not forwarded');
+        response.write('Some uncacheable resource');
         response.end();
 
     }
