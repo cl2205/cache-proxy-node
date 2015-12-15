@@ -16,7 +16,7 @@ My implementation of an HTTP server that behaves as a transparent caching revers
   * ```isFull```
   * ```isEmpty```
 
-A doubly linked list is used for efficient entry insertion and removal. Newest entries are added to tail, while oldest entries are removed from head in O(1) time as memory and size limits are reached. Individual entries also emit an ```expired``` event and are cleared from cache after 1 hour by default.
+ A doubly linked list is used for efficient entry insertion and removal. Newest entries are added to tail, while oldest entries are removed from head in O(1) time as memory and size limits are reached. Individual entries also emit an ```expired``` event and are cleared from cache after 1 hour by default.
 
 3. **Host server**: The host server is the destination where the proxy forwards requests and is set to listen to requests on port 4000. It sends back a basic text response for demo purposes. 
 
