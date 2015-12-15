@@ -1,6 +1,6 @@
 # Node Caching Proxy
 
-My implementation of an HTTP server that behaves as a transparent caching reverse proxy for incoming GET requests using Node.js. 
+An HTTP server that behaves as a transparent caching reverse proxy for incoming GET requests using Node.js. 
 
 ## How It Works
 
