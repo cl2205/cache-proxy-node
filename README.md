@@ -6,7 +6,7 @@ My implementation of an HTTP server that behaves as a transparent caching revers
 
 1. **Proxy server**: The proxy accepts incoming HTTP GET requests and forwards them on to a destination host server. It fowards back server responses to the client and caches the response for retrieval in future requests of the same resource, done in lieu of a call to the host server. 
 
-2. **Cache**: A configurable in-memory LRU (least recently used) cache that uses a hash map for O(1) lookup time of cached entries. It stores up to 50 entries or 5MB of memory by default and has the following methods: 
+2. **Caching Layer**: A configurable in-memory LRU (least recently used) cache is built into the proxy and uses a hash map for O(1) lookup time of cached entries. It stores up to 50 entries or 5MB of memory by default and has the following methods: 
   * ```add```
   * ```get```
   * ```removeOldest```
