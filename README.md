@@ -32,13 +32,13 @@ $ cd cache-proxy-node
 ```
 ## Launching
 
-The proxy can be launched by running ```node proxy``` in the root directory. 
+The proxy can be launched locally by running ```node proxy``` in the root directory. 
 
 ```javascript
 $ node proxy 
 ```
 
-In a new terminal window, launch the host server by running ```node server``` in root.
+In a new terminal window, launch the host server locally by running ```node server``` in root.
 
 ```javascript
 $ node server
