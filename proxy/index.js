@@ -25,6 +25,8 @@ proxyServer.on('request', function(request, response) {
 
         if (cache.hasKey(reqUrl)) {
 
+            console.log('Retrieving from cache...');
+
             var resource = cache.get(reqUrl);
 
             response.statusCode = 200;
@@ -34,6 +36,8 @@ proxyServer.on('request', function(request, response) {
         // else forward request to host server
 
         } else {
+
+            console.log('Forwarding request to host server...');
         
             var options = {
 

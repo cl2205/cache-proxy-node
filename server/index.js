@@ -8,6 +8,8 @@ var hostServer = http.createServer().listen(4000, function() {
 
 hostServer.on('request', function(request, response) {
 
+	console.log("host server called");
+
     // contrived 'not found' resource
 	if (request.url === "/notfound") {
 
@@ -17,7 +19,7 @@ hostServer.on('request', function(request, response) {
 	} else {
 
 		response.writeHead(200);
-		response.write('Some static content to be cached');
+		response.write('Some static content');
 
 	}
 
