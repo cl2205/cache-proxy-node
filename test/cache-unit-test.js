@@ -156,9 +156,9 @@ describe('Caching Layer - Unit', function() {
 
         it ('should remove individual entries as they expire', function() {
 
-                expect(cache.store).to.not.have.property('/assets/1');
-                sinon.assert.calledTwice(spy);
-                spy.restore();
+            expect(cache.store).to.not.have.property('/assets/1');
+            sinon.assert.calledTwice(spy);
+            spy.restore();
                 
         });
 
