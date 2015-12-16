@@ -20,17 +20,17 @@ function Cache(maxElements, maxBytes) {
     this.maxSizeElements = maxElements || 50;  // default 50 entries
     this.maxSizeBytes = maxBytes || 5000000; // default 5MB
     this.store = {};
-	this.head;
-	this.tail;
-	this.numElements = 0;
-	this.numBytes = 0;
-	this.on('expired', function(key) {
-		this.remove(key);
-	});
+    this.head;
+    this.tail;
+    this.numElements = 0;
+    this.numBytes = 0;
+    this.on('expired', function(key) {
+        this.remove(key);
+    });
 }
 
 function createCache() {
-	return new Cache();
+    return new Cache();
 }
 
 /* Cache entry factory function. Each entry contains
@@ -38,18 +38,18 @@ host server response data, timestamp, size, 1-hr self-expiration, and
 pointers to older and newer entries in doubly linked list. */
 
 function createCacheEntry(key, data, size, duration) {
-	var obj = {
-		key: key,
-		data: data,
-		timestamp: Date.now(),
-		size: size,
-		duration: duration || 3600000, // default 1 hour 
-		expiration: undefined,
-		next: null,
-		previous: null
-	};
+    var obj = {
+        key: key,
+        data: data,
+        timestamp: Date.now(),
+        size: size,
+        duration: duration || 3600000, // default 1 hour 
+        expiration: undefined,
+        next: null,
+        previous: null
+    };
 
-	return obj;
+return obj;
 
 }
 
@@ -59,41 +59,41 @@ before inserting new entry to end of linked list */
 
 Cache.prototype.add = function(key, data, size, duration) {
 
-	var self = this;
+    var self = this;
 
-	if (typeof key !== 'string') throw new TypeError('Keys must be strings');
+    if (typeof key !== 'string') throw new TypeError('Keys must be strings');
 
     while (this.isFull(size)) {
-		this.removeOldest();
-	}
+        this.removeOldest();
+    }
 
-	var newEntry = createCacheEntry(key, data, size, duration);
+    var newEntry = createCacheEntry(key, data, size, duration);
 
-	// set cache duration / self-expiration on entry
-	newEntry.expiration = setTimeout(function() {
-		self.emit('expired', key);
-	}, newEntry.duration);
+    // set cache duration / self-expiration on entry
+    newEntry.expiration = setTimeout(function() {
+        self.emit('expired', key);
+    }, newEntry.duration);
 
-	// if cache is empty, set 1st entry to both head and tail
+    // if cache is empty, set 1st entry to both head and tail
 
-	if (typeof this.head === 'undefined' && typeof this.tail === 'undefined') {
-		this.head = newEntry;
-		this.tail = newEntry;
+    if (typeof this.head === 'undefined' && typeof this.tail === 'undefined') {
+        this.head = newEntry;
+        this.tail = newEntry;
 
     // else add newest entry to tail 
 
-	} else {
+    } else {
 
-		this.tail.next = newEntry;
-		newEntry.previous = this.tail;
-		this.tail = newEntry;
-	}
-	
-	// save entry to hash map with url path as key and update cache size
+        this.tail.next = newEntry;
+        newEntry.previous = this.tail;
+        this.tail = newEntry;
+    }
 
-	this.store[key] = newEntry;
-	this.numElements++;
-	this.numBytes += newEntry.size;
+    // save entry to hash map with url path as key and update cache size
+
+    this.store[key] = newEntry;
+    this.numElements++;
+    this.numBytes += newEntry.size;
 
     return this.store[key];
 
@@ -104,35 +104,35 @@ from cache and returns entry */
 
 Cache.prototype.removeOldest = function() {
 
-	if (this.isEmpty()) return;
+    if (this.isEmpty()) return;
 
-	var oldestEntry = this.head;
+    var oldestEntry = this.head;
 
-	// if 1 entry exists
-	if (this.head === this.tail) {
-		this.head = undefined;
-		this.tail = undefined;
+    // if 1 entry exists
+    if (this.head === this.tail) {
+        this.head = undefined;
+        this.tail = undefined;
 
     // else set new header
-	} else {
+    } else {
 
-		this.head = this.head.next;
-		this.head.previous = null;
+        this.head = this.head.next;
+        this.head.previous = null;
 
-	}
+    }
 
     // clear pointers of entry to remove
-	oldestEntry.previous = null;
-	oldestEntry.next = null;
+    oldestEntry.previous = null;
+    oldestEntry.next = null;
 
-	var bytesFreed = oldestEntry.size;
+    var bytesFreed = oldestEntry.size;
 
-	delete this.store[oldestEntry.key];
+    delete this.store[oldestEntry.key];
 
-	this.numElements--;
-	this.numBytes = this.numBytes - bytesFreed;
+    this.numElements--;
+    this.numBytes = this.numBytes - bytesFreed;
 
-	return oldestEntry;
+    return oldestEntry;
 };
 
 /* removes individual entries from cache. This method is called
@@ -186,10 +186,10 @@ Cache.prototype.remove = function(key) {
 
 Cache.prototype.get = function(key) {
 
-	var entry = this.store[key];
+    var entry = this.store[key];
 
     // if not cached, return
-	if (!entry) {
+    if (!entry) {
         return;
     }
 
@@ -197,28 +197,26 @@ Cache.prototype.get = function(key) {
     entry.timestamp = Date.now();
     entry.duration = 3600000;
 
-	// if it is the only entry or already is most recent entry
-	if ((entry === this.head && entry === this.tail) || entry === this.tail ) 
-		return entry;
+    // if it is the only entry or already is most recent entry
+    if ((entry === this.head && entry === this.tail) || entry === this.tail ) 
+        return entry;
 
     // it if is the oldest entry 
-	if (entry === this.head) {
-
-		this.head.next = this.head
-		this.head.previous = null;
-
-	} else {
-		entry.previous.next = entry.next;
-		entry.next.previous = entry.previous;
-	}
+    if (entry === this.head) {
+        this.head.next = this.head
+        this.head.previous = null;
+    } else {
+        entry.previous.next = entry.next;
+        entry.next.previous = entry.previous;
+    }
 
     // move to tail and return entry
-	entry.previous = this.tail;
-	this.tail.next = entry;
-	this.tail = entry;
-	this.tail.next = null;
+    entry.previous = this.tail;
+    this.tail.next = entry;
+    this.tail = entry;
+    this.tail.next = null;
 
-	return entry;
+    return entry;
 };
 
 /* removes all entries and resets 
@@ -243,7 +241,7 @@ Cache.prototype.clearAll = function() {
 
 
 Cache.prototype.hasKey = function(key) {
-	return !!(this.store[key]);
+    return !!(this.store[key]);
 };
 
 Cache.prototype.isFull = function(entrySize) {
@@ -251,7 +249,7 @@ Cache.prototype.isFull = function(entrySize) {
 };
 
 Cache.prototype.isEmpty = function() {
-	return typeof this.head === 'undefined' && typeof this.tail === 'undefined';
+    return typeof this.head === 'undefined' && typeof this.tail === 'undefined';
 };
 
 module.exports = createCache();
